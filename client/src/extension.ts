@@ -42,9 +42,13 @@ export function activate(context: ExtensionContext) {
 	let clientOptions: LanguageClientOptions = {
 		// Register the server for plain text documents.  I haven't found a "Always do this" option, hence the exhaustive
 		//listing here.  If someone else knows how to say "do this for *" that would be the preference
-		documentSelector: ["php","c","cpp","csharp","ruby","perl","perl6","javascriptreact","javascript",
-			"go","rust","groovy","typescript","typescriptreact","jade","lua","swift","clojure","sql",
-			"vb","shellscript","yaml","fsharp","objective-c","r","java","powershell","coffeescript", "plaintext","python", "xml" ],
+		documentSelector: ["clojure","coffeescript","c","cpp","csharp","fsharp","go","groovy","html",
+		"jade","java","javascriptreact","javascript","lua","objective-c","objective-cpp",
+		"perl","perl6","php","powershell","python","r","razor", "ruby","rust","shellscript","sql","swift","typescript","typescriptreact",
+			"vb",,"xml", "yaml","plaintext" ],
+			/** other languages VS Code supports - bat, css, dockerfile, handlebars,hlsl, ini, json, less, make, markdown, scss, shaderlab,
+			 * shellscript, 
+			  */
 		synchronize: {
 			// Synchronize the setting section 'devskim' to the server
 			configurationSection: 'devskim',

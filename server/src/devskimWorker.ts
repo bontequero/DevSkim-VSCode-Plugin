@@ -50,13 +50,24 @@ export class DevSkimWorker
     //map seemed a little excessive to me.  Then again, I just wrote 3 paragraphs for how this works, so maybe I'm being too clever
     public codeActions: Map<Map<AutoFix>> = Object.create(null);    
 
-    constructor()
+    constructor(runningFromCLI ?: boolean)
     {
+        
         //this file runs out of the server directory.  The rules directory should be in ../rules
         //so pop over to it
-        this.rulesDirectory =  path.join(__dirname,"..","rules");
-
-        this.loadRules();
+        
+        if(typeof(runningFromCLI) === 'undefined' || !runningFromCLI)
+        {
+            this.rulesDirectory =  path.join(__dirname,"..","rules"); 
+            this.loadRules();
+        }   
+        else
+        {
+            this.rulesDirectory =  path.join(__dirname,"rules"); 
+            this.loadRulesSync();
+        }    
+    
+        
     }
 
     /**
@@ -71,6 +82,7 @@ export class DevSkimWorker
     {
         var problems : DevSkimProblem[] = [];
         var ignore : PathOperations = new PathOperations();
+
 
         //Before we do any processing, see if the file (or its directory) are in the ignore list.  If so
         //skip doing any analysis on the file
@@ -172,6 +184,26 @@ export class DevSkimWorker
                 delete this.tempRules;
             }
         );          
+    }
+
+    private loadRulesSync() : void
+    {
+        let files : string[] = this.dir.files(this.rulesDirectory,{sync:true});
+        let fs = require("fs");
+        this.analysisRules = [];
+        for(let file of files)
+        {
+            if(file.toLowerCase().indexOf(".json") > 0)
+            {
+                let content = fs.readFileSync(file);
+                var loadedRules : Rule[] = JSON.parse(content);
+                for(var rule of loadedRules)
+                {
+                    rule.filepath = file;
+                }            
+                this.analysisRules = this.analysisRules.concat(loadedRules);
+            }
+        }
     }
 
     /**
@@ -337,7 +369,7 @@ export class DevSkimWorker
                            this.matchIsInScope(langID, documentContents.substr(0, match.index), newlineIndex,rule.patterns[patternIndex].scopes ) &&
                             this.matchesConditions(rule.conditions,documentContents,range, langID))
                         {
-                            let problem : DevSkimProblem = this.makeProblem(rule,this.MapRuleSeverity(rule.severity), range);
+                            let problem : DevSkimProblem = this.makeProblem(rule,this.MapRuleSeverity(rule.severity), documentURI, range);
 
                             //add in any fixes
                             problem.fixes = problem.fixes.concat(this.makeFixes(rule,replacementSource,range));
@@ -352,7 +384,7 @@ export class DevSkimWorker
                             //highlight suppression finding for context
                             //this will look
                             let suppressionRange : Range = Range.create(lineStart,columnStart + suppressionFinding.ruleColumn,lineStart, columnStart + suppressionFinding.ruleColumn + rule.id.length);
-                            let problem : DevSkimProblem = this.makeProblem(rule,DevskimRuleSeverity.WarningInfo, suppressionRange, range);
+                            let problem : DevSkimProblem = this.makeProblem(rule,DevskimRuleSeverity.WarningInfo, documentURI, suppressionRange, range);
                             
                             problems.push(problem);
 
@@ -410,10 +442,10 @@ export class DevSkimWorker
      * @param {Range} problemRange 
      * @param {Range} [suppressedFindingRange] 
      */
-    private makeProblem(rule: Rule, warningLevel : DevskimRuleSeverity, problemRange: Range, suppressedFindingRange?:Range) : DevSkimProblem
+    private makeProblem(rule: Rule, warningLevel : DevskimRuleSeverity, filePath: string, problemRange: Range, suppressedFindingRange?:Range) : DevSkimProblem
     {
         let problem : DevSkimProblem = new DevSkimProblem(rule.description,rule.name,
-            rule.id, warningLevel, rule.recommendation, rule.rule_info, problemRange);
+            rule.id, warningLevel, rule.recommendation, rule.rule_info, problemRange, filePath);
 
         if(suppressedFindingRange != undefined && suppressedFindingRange != null)
         {

@@ -175,6 +175,7 @@ export class DevSkimProblem {
 	public replacement: string;
 	public fixes: DevSkimAutoFixEdit[];
 	public suppressedFindingRange : Range;
+	public filePath : string;
 
 	public overrides : string[]; //a collection of ruleIDs that this rule supercedes
 
@@ -187,8 +188,9 @@ export class DevSkimProblem {
      * @param {string} severity MSRC based severity for the rule - Critical, Important, Moderate, Low, Informational (severity in rules JSON)
      * @param {string} issueURL a URL to some place the dev can get more information on the problem (rules_info in the rules JSON)
      * @param {Range} range where the problem was found in the file (line start, column start, line end, column end) 
+	 * @param {string} fileURI location of the file on the file system
      */
-    constructor ( message: string, source: string, ruleId: string, severity: DevskimRuleSeverity, replacement: string, issueURL: string, range: Range) 
+    constructor ( message: string, source: string, ruleId: string, severity: DevskimRuleSeverity, replacement: string, issueURL: string, range: Range, fileURI: string) 
     {
 		this.fixes    = [];
 		this.overrides = [];
@@ -201,6 +203,7 @@ export class DevSkimProblem {
    		this.range    = (range    !== undefined ) ? range    : Range.create(0,0,0,0);
 		this.severity = severity;  
 		this.suppressedFindingRange = null; 
+		this.filePath = fileURI;
         
 	}
 
