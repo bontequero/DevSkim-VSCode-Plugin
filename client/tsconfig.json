@@ -7,7 +7,8 @@
 		"lib": [
 			"es6"
 		],
-		"sourceMap": true
+		"sourceMap": true,
+		"types": ["node"]
 	},
 	"exclude": [
 		"node_modules",

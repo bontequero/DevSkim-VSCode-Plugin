@@ -179,8 +179,7 @@ export class SourceComments
         {
             return true;
         }
-
-
+        
         return false;
     }   
 }

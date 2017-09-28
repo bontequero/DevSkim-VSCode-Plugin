@@ -203,8 +203,7 @@ export class DevSkimProblem {
    		this.range    = (range    !== undefined ) ? range    : Range.create(0,0,0,0);
 		this.severity = severity;  
 		this.suppressedFindingRange = null; 
-		this.filePath = fileURI;
-        
+		this.filePath = fileURI;        
 	}
 
 	/**
@@ -225,6 +224,18 @@ export class DevSkimProblem {
 			case DevskimRuleSeverity.ManualReview: return "[Review]";
 			default: return "[Best Practice]";
 		}
+	}
+
+	public getSarifLevel(severity : DevskimRuleSeverity) : string
+	{
+		switch (severity)
+		{
+			case DevskimRuleSeverity.Critical: return "error";
+			case DevskimRuleSeverity.Important: return "error";
+			case DevskimRuleSeverity.Moderate: return "error";
+			case DevskimRuleSeverity.ManualReview: return "warning";
+			default: return "warning";
+		}		
 	}
     
     /**

@@ -4,7 +4,8 @@
 		"module": "commonjs",
 		"moduleResolution": "node",
 		"sourceMap": true,
-		"outDir": "../client/server"
+		"outDir": "../client/server",
+		"types": ["node"]
 	},
 	"exclude": [
 		"node_modules"
