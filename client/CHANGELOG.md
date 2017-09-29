@@ -2,6 +2,7 @@
 
 ## Version 0.2.1
 * There is now an experimental "Scan All" command that, when invoked, will scan every applicable file in the root workspace.  There are a couple of caveats due to limitations with VS Code - other extensions will also generate "problems" (everyone gets the message that the files were opened for analysis at the moment in VSC), and there is a maximum number of problems that the problems pane can display, so large code bases potentially won't see every issue.  When VSC addresses the first issue (its in their backlog) the latter issue should be less likley. 
+* While not directly related to the VS Code plugin, the groundwork has been added for a command line version of DevSkim that will be made available in NPM shortly.  It shares its codebase with this plugin, and an early version of it can be enabled by going to "\<vscode extension directory\>\devskim\server" and typing the command "npm link".  Once that is done, DevSkim can be run from the commandline just by typing "devskim analyze" (for a list of parameters type "devskim -help" or "devskim analyze -help")
 
 ## Version 0.2.0
 * Added ability to apply rules to specific files (e.g. package.json or project.json, instead of all .json files)

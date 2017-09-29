@@ -71,6 +71,15 @@ export class DevSkimWorker
     }
 
     /**
+     * Get the currently loaded rules. A function is used rather than just making the rules object public so that
+     * this class's use of those rules can't be impacted by changes outside of this class
+     */
+    public getAnalysisRules() : Rule[]
+    {
+        return this.analysisRules;
+    }
+
+    /**
      * Look for problems in the provided text
      * 
      * @param {string} documentContents the contents of a file to analyze
@@ -239,7 +248,7 @@ export class DevSkimWorker
      * 
      * @memberOf DevSkimWorker
      */
-    public MapRuleSeverity(severity: string) : DevskimRuleSeverity
+    private MapRuleSeverity(severity: string) : DevskimRuleSeverity
     {
         switch (severity.toLowerCase())
 		{
@@ -260,7 +269,7 @@ export class DevSkimWorker
      * @param {string[]} modifiers modifiers to use when creating regex. can be null.  a value of "d" will be ignored if forXregExp is false
      * @param {boolean} forXregExp whether this is for the XRegExp regex engine (true) or the vanilla javascript regex engine (false)
      */
-    public MakeRegex(regexType : string, pattern : string, modifiers : string[],forXregExp : boolean) : RegExp
+    private MakeRegex(regexType : string, pattern : string, modifiers : string[],forXregExp : boolean) : RegExp
     {
         //create any regex modifiers
         let regexModifer : string = ""; 

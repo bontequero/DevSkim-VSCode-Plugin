@@ -9,10 +9,11 @@
  * 
  */
 
-import {Settings, DevSkimSettings, computeKey, DevSkimProblem, Fixes, Map, AutoFix, FixIt, DevSkimAutoFixEdit} from "./devskimObjects";
+import {Settings, DevSkimSettings, DevSkimProblem, Fixes, AutoFix, FixIt, DevSkimAutoFixEdit, Rule} from "./devskimObjects";
 import {DevSkimWorker} from "./devskimWorker";
 import {PathOperations} from "./pathOperations";
-import {Sarif,SarifFile,SarifTool, SarifRun, SarifResult, SarifFindingLocation, SarifFindingTarget, SarifFindingRegion} from "./sarif"
+import {Sarif,SarifFile,SarifTool, SarifRun, SarifResult, SarifFindingLocation, SarifFindingTarget, SarifFindingRegion, SarifRule, SarifRuleProperites} from "./sarif"
+import * as path from 'path';
 
 var program = require("commander");
 
@@ -30,8 +31,8 @@ program.command('analyze')
     });
 
 /**
- * 
- * @param option 
+ * Create a DevSkimSettings object from the specified command line options (or defaults if no relevent option is present)
+ * @param option the options passed from the commandline analysis command
  */
 function buildSettings(option) : DevSkimSettings
 {
@@ -73,6 +74,9 @@ function buildSettings(option) : DevSkimSettings
 
 }
 
+/**
+ * Create the Sarif object for the tool information.  
+ */
 function BuildSarifToolInfo() : SarifTool
 {
     let toolInfo : SarifTool = Object.create(null);
@@ -81,7 +85,7 @@ function BuildSarifToolInfo() : SarifTool
     toolInfo.semanticVersion = "0.0.0";
 
     let fs = require("fs");
-    let content = fs.readFileSync("package.json");
+    let content = fs.readFileSync(path.join(__dirname,"package.json"));
     if(content !=undefined && content != null && content.length > 0)
     {
         var packageInfo = JSON.parse(content);
@@ -94,6 +98,10 @@ function BuildSarifToolInfo() : SarifTool
     return toolInfo;
 }
 
+/**
+ * Build out a set of Sarif results using the problems array generated during analysis
+ * @param {DevSkimProblem[]} problems 
+ */
 function BuildSarifResults(problems : DevSkimProblem[]) : SarifResult[]
 {
     let results : SarifResult[] = [];
@@ -127,6 +135,59 @@ function BuildSarifResults(problems : DevSkimProblem[]) : SarifResult[]
 }
 
 /**
+ * Build out a set of rules that triggered using the problems array generated during analysis
+ * @param {DevSkimProblem[]} problems 
+ */
+function BuildSarifRuleInfo(problems : DevSkimProblem[], loadedRules: Rule[]) : SarifRule[] 
+{
+    let triggeredRules : SarifRule[] = [];
+    let ruleIDs : string [] = [];
+
+    for(let problem of problems)
+    {
+        if(ruleIDs.indexOf(problem.ruleId) == -1 )
+        {
+            ruleIDs.push(problem.ruleId);
+        }
+    }
+    if(ruleIDs.length > 0)
+    {
+        for(let rule of loadedRules)
+        {
+            if(ruleIDs.indexOf(rule.id) > -1)
+            {
+                let foundRule : SarifRule = Object.create(null);
+                let foundRuleProperty : SarifRuleProperites = Object.create(null);
+
+                foundRule.id = rule.id;
+                foundRule.shortDescription = rule.name;
+                foundRule.fullDescription = rule.description;
+
+                switch (rule.severity.toLowerCase())
+                {
+                    case "critical":         
+                    case "important":        
+                    case "moderate":         foundRule.defaultLevel = "error";
+                    case "best-practice":    
+                    case "manual-review":    
+                    default:                 foundRule.defaultLevel = "warning";
+                }                  
+                foundRule.helpUri = DevSkimWorker.settings.devskim.guidanceBaseURL + rule.rule_info;
+
+                foundRuleProperty.recommendedSeverity = rule.severity.toLowerCase();
+                foundRuleProperty.appliesTo = (rule.applies_to != undefined && rule.applies_to.length > 0) ? rule.applies_to : ["*"];
+                foundRuleProperty.tags = rule.tags;
+
+                foundRule.properties = foundRuleProperty;
+                triggeredRules.push(foundRule);
+            }
+        }
+    }
+
+    return triggeredRules;
+}
+
+/**
  * 
  * @param options 
  */
@@ -140,9 +201,6 @@ function analyze(options)
     
     let FilesToLog : Object = {};
     
-    console.log(directory);
-    console.log(outputFile);
-
     DevSkimWorker.settings = Object.create(null);
     DevSkimWorker.settings.devskim =  buildSettings(options);    
 
@@ -160,15 +218,14 @@ function analyze(options)
                 return;
             }
             
-            let fs = require("fs");
-            let path = require("path");   
+            let fs = require("fs"); 
             var analysisEngine : DevSkimWorker = new DevSkimWorker(true);         
             let pathOp : PathOperations = new PathOperations();
             var problems : DevSkimProblem[] = [];
             
             for(let curFile of files)
             {						
-                if(curFile.indexOf(".git") == -1)
+                if(curFile.indexOf(".git") == -1 && !pathOp.ignoreFile(curFile,DevSkimWorker.settings.devskim.ignoreFilesList))
                 {
                     let documentContents : string = fs.readFileSync(curFile, "utf8");
                     let langID : string = pathOp.getLangFromPath(curFile);
@@ -188,11 +245,13 @@ function analyze(options)
             run.tool = BuildSarifToolInfo();
             run.files = FilesToLog;
             run.results = BuildSarifResults(problems);
+            run.rules = BuildSarifRuleInfo(problems,analysisEngine.getAnalysisRules());
 
             output.runs = [];
             output.runs.push(run);
 
-            fs.writeFile(outputFile, JSON.stringify(output, null, 4), (err)=> {});            
+            fs.writeFile(outputFile, JSON.stringify(output, null, 4), (err)=> {});  
+            console.log("Analyzed all files under %s and wrote the findings to %s",directory, outputFile);
         });	
 }
 

@@ -66,6 +66,8 @@ export interface SarifRule
 export interface SarifRuleProperites
 {
     recommendedSeverity: string;
+    appliesTo: string[];
+    tags: string[];
 }
 
 export interface Sarif
