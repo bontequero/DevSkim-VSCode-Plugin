@@ -130,6 +130,7 @@ export class RuleValidator
     }
 
 
+
     /**
      * Go through the object, validating all of the various properties to ensure they are present (if required) and in the
      * expected format
@@ -381,8 +382,18 @@ export class RuleValidator
         let pattern : Pattern = Object.create(null);
 
         if(this.checkValue(loadedPattern.pattern,loadedRule,"string","pattern.patten regex value is missing from object",OutputAlert.Error))
-        {
+        {            
             pattern.pattern = loadedPattern.pattern;
+            var safe = require('safe-regex');
+            if(!safe(pattern.pattern))
+            {
+                let outcome : OutputMessages = Object.create(null);
+                outcome.alert = OutputAlert.Warning;
+                outcome.message = "pattern.pattern has exponential time features.  Look to limit permutation growth";
+                outcome.ruleid = loadedRule.id;
+                outcome.file = loadedRule.filepath;
+                this.outputMessages.push(outcome);  
+            }
         }
         pattern.type = this.validatePatternType(loadedPattern.type, loadedPattern);
         
