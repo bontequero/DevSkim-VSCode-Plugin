@@ -187,6 +187,65 @@ function BuildSarifRuleInfo(problems : DevSkimProblem[], loadedRules: Rule[]) : 
     return triggeredRules;
 }
 
+function WriteOuputFile(problems : DevSkimProblem[], loadedRules: Rule[], FilesToLog: object, outputFile : string, directory : string)
+{
+    let fs  = require("fs");
+
+    let output : Sarif = Object.create(null);            
+    let run : SarifRun = Object.create(null);     
+    output.version = "1.0.0";
+
+    run.tool = BuildSarifToolInfo();
+    run.files = FilesToLog;
+    run.results = BuildSarifResults(problems);
+    run.rules = BuildSarifRuleInfo(problems,loadedRules);
+
+    output.runs = [];
+    output.runs.push(run);
+
+    fs.writeFile(outputFile, JSON.stringify(output, null, 4), (err)=> {});  
+    console.log("Analyzed all files under %s and wrote the findings to %s",directory, outputFile);
+}
+
+function WriteOutputCLI(problems: DevSkimProblem[], directory : string)
+{
+    let issueText : string = (problems.length == 1)? 
+        "Analyzing all files under %s.  Found %d issue" : 
+        "Analyzing all files under %s.  Found %d issues";
+    console.log(issueText, directory, problems.length);
+    let errorInfo = {};
+
+    if(problems.length > 0)
+    {
+        for(let problem of problems)
+        {
+            if(errorInfo[problem.filePath] == undefined)
+            {
+                errorInfo[problem.filePath] = [];
+            }
+            let errorString : string = "  line:" + (problem.range.start.line +1).toString() + " column:" + 
+                (problem.range.start.character +1).toString() + " - " + problem.ruleId + " " + problem.getSeverityName(problem.severity) +
+                " : " + problem.source;
+
+            errorInfo[problem.filePath].push(errorString);
+        }
+        for (let filename in errorInfo) 
+        {
+            issueText  = (errorInfo[filename].length == 1)? 
+            "\n file: %s \n Found %d issue:" : 
+            "\n file: %s \n Found %d issues:";            
+            console.log(issueText,filename, errorInfo[filename].length);
+
+            for(let errorString of errorInfo[filename])
+            {
+                console.log(errorString);
+            }
+        }
+    }
+        
+
+}
+
 /**
  * 
  * @param options 
@@ -197,7 +256,7 @@ function analyze(options)
         process.cwd() :  options.directory;
 
     let outputFile: string= (options == undefined || options.output_file == undefined ) ? 
-        "devskim_results.json" :  options.output_file;
+        "" :  options.output_file;
     
     let FilesToLog : Object = {};
     
@@ -238,20 +297,15 @@ function analyze(options)
                 }						
             }
 
-            let output : Sarif = Object.create(null);            
-            let run : SarifRun = Object.create(null);     
-            output.version = "1.0.0";
-
-            run.tool = BuildSarifToolInfo();
-            run.files = FilesToLog;
-            run.results = BuildSarifResults(problems);
-            run.rules = BuildSarifRuleInfo(problems,analysisEngine.getAnalysisRules());
-
-            output.runs = [];
-            output.runs.push(run);
-
-            fs.writeFile(outputFile, JSON.stringify(output, null, 4), (err)=> {});  
-            console.log("Analyzed all files under %s and wrote the findings to %s",directory, outputFile);
+            if(outputFile.length < 1)
+            {
+                WriteOutputCLI(problems,directory);
+            }
+            else
+            {
+                WriteOuputFile(problems,analysisEngine.getAnalysisRules(),FilesToLog,outputFile,directory);
+            }
+            
         });	
 }
 
