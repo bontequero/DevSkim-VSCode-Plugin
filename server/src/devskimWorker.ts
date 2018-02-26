@@ -24,7 +24,6 @@ import {RuleValidator} from "./ruleValidator";
  */
 export class DevSkimWorker
 {
-    public static settings : Settings;
 
     //directory that the extension rules live in.  
     private rulesDirectory: string;
@@ -50,7 +49,7 @@ export class DevSkimWorker
     //map seemed a little excessive to me.  Then again, I just wrote 3 paragraphs for how this works, so maybe I'm being too clever
     public codeActions: Map<Map<AutoFix>> = Object.create(null);    
 
-    constructor(runningFromCLI ?: boolean)
+    constructor(settings : Settings, runningFromCLI ?: boolean)
     {
         
         //this file runs out of the server directory.  The rules directory should be in ../rules
@@ -59,7 +58,7 @@ export class DevSkimWorker
         if(typeof(runningFromCLI) === 'undefined' || !runningFromCLI)
         {
             this.rulesDirectory =  path.join(__dirname,"..","rules"); 
-            this.loadRules();
+            this.loadRules(settings.devskim.validateRulesFiles);
         }   
         else
         {
@@ -87,7 +86,7 @@ export class DevSkimWorker
      * @param {string} documentURI the URI identifying the file
      * @returns {DevSkimProblem[]} an array of all of the issues found in the text
      */
-    public analyzeText(documentContents : string, langID : string, documentURI : string) : DevSkimProblem[]
+    public analyzeText(documentContents : string, langID : string, documentURI : string, settings : Settings) : DevSkimProblem[]
     {
         var problems : DevSkimProblem[] = [];
         var ignore : PathOperations = new PathOperations();
@@ -95,10 +94,10 @@ export class DevSkimWorker
 
         //Before we do any processing, see if the file (or its directory) are in the ignore list.  If so
         //skip doing any analysis on the file
-        if(!ignore.ignoreFile(documentURI,DevSkimWorker.settings.devskim.ignoreFilesList))
+        if(!ignore.ignoreFile(documentURI,settings.devskim.ignoreFilesList))
         {
             //find out what issues are in the current document
-            problems = this.runAnalysis(documentContents,langID,documentURI);
+            problems = this.runAnalysis(documentContents,langID,documentURI, settings);
             
             //remove any findings from rules that have been overriden by other rules
             problems = this.processOverrides(problems);
@@ -149,9 +148,9 @@ export class DevSkimWorker
      * should exist with reloading rules), but might be if doing a full analysis of a lot of files.  So in anticipation of that, I broke this
      * into its own function so such a check could be added.
      */
-    public refreshAnalysisRules() : void
+    public refreshAnalysisRules(validateRulesFiles : boolean) : void
     {
-        this.loadRules();
+        this.loadRules(validateRulesFiles);
     }
 
     /**
@@ -159,7 +158,7 @@ export class DevSkimWorker
      * 
      * @private
      */
-    private loadRules() : void 
+    private loadRules(validateRulesFiles : boolean) : void 
     {
         this.tempRules = [];
         this.analysisRules = [];
@@ -187,7 +186,7 @@ export class DevSkimWorker
                 //sure they are in a format we can use.  This will overwrite any badly formed JSON files
                 //with good ones so that it passes validation in the future
                 let validator : RuleValidator = new RuleValidator(this.rulesDirectory,__dirname);
-                this.analysisRules = validator.validateRules(this.tempRules, DevSkimWorker.settings.devskim.validateRulesFiles);
+                this.analysisRules = validator.validateRules(this.tempRules, validateRulesFiles);
                 
                 //don't need to keep this around anymore
                 delete this.tempRules;
@@ -225,13 +224,13 @@ export class DevSkimWorker
      * 
      * @memberOf DevSkimWorker
      */
-    private RuleSeverityEnabled(ruleSeverity : DevskimRuleSeverity) : boolean
+    private RuleSeverityEnabled(ruleSeverity : DevskimRuleSeverity, settings :Settings) : boolean
     {
         if(ruleSeverity == DevskimRuleSeverity.Critical  || 
            ruleSeverity == DevskimRuleSeverity.Important || 
            ruleSeverity == DevskimRuleSeverity.Moderate  ||
-           (ruleSeverity == DevskimRuleSeverity.BestPractice   && DevSkimWorker.settings.devskim.enableBestPracticeRules == true )            ||
-           (ruleSeverity == DevskimRuleSeverity.ManualReview   && DevSkimWorker.settings.devskim.enableManualReviewRules == true  ))
+           (ruleSeverity == DevskimRuleSeverity.BestPractice   && settings.devskim.enableBestPracticeRules == true )            ||
+           (ruleSeverity == DevskimRuleSeverity.ManualReview   && settings.devskim.enableManualReviewRules == true  ))
         {
             return true;
         }
@@ -313,7 +312,7 @@ export class DevSkimWorker
      * @param {string} documentURI URI identifying the document
      * @returns {DevSkimProblem[]} all of the issues identified in the analysis
      */
-    private runAnalysis(documentContents : string, langID : string, documentURI : string) : DevSkimProblem[]
+    private runAnalysis(documentContents : string, langID : string, documentURI : string, settings : Settings) : DevSkimProblem[]
     {
         let problems : DevSkimProblem[] = [];
         let suppression : DevSkimSuppression = new DevSkimSuppression();
@@ -327,9 +326,9 @@ export class DevSkimWorker
             var ruleSeverity : DevskimRuleSeverity = this.MapRuleSeverity(rule.severity);
             //if the rule doesn't apply to whatever language we are analyzing (C++, Java, etc.) or we aren't processing
             //that particular severity skip the rest
-            if(DevSkimWorker.settings.devskim.ignoreRulesList.indexOf(rule.id) == -1 &&  /*check to see if this is a rule the user asked to ignore */
+            if(settings.devskim.ignoreRulesList.indexOf(rule.id) == -1 &&  /*check to see if this is a rule the user asked to ignore */
                this.appliesToLangOrFile(langID, rule.applies_to, documentURI) &&
-               this.RuleSeverityEnabled(ruleSeverity))
+               this.RuleSeverityEnabled(ruleSeverity, settings))
             {
                 for(let patternIndex:number = 0; patternIndex < rule.patterns.length; patternIndex++)
                 {   
@@ -382,7 +381,7 @@ export class DevSkimWorker
 
                             //add in any fixes
                             problem.fixes = problem.fixes.concat(this.makeFixes(rule,replacementSource,range));
-                            problem.fixes = problem.fixes.concat(suppression.createActions(rule.id,documentContents,match.index,lineStart, langID,ruleSeverity));
+                            problem.fixes = problem.fixes.concat(suppression.createActions(rule.id,documentContents,match.index,lineStart, langID,ruleSeverity, settings));
                            
                             problems.push(problem);
                         }  

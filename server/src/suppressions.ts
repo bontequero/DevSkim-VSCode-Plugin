@@ -49,7 +49,7 @@ export class DevSkimSuppression
      * 
      * @memberOf DevSkimSuppression
      */
-    private makeActionString(ruleIDs : string, isReviewRule : boolean, date ?: Date) : string
+    private makeActionString(ruleIDs : string, isReviewRule : boolean, settings : Settings, date ?: Date) : string
     {
         let actionString : string = (isReviewRule) ? "DevSkim: reviewed ":"DevSkim: ignore ";
 
@@ -64,10 +64,10 @@ export class DevSkimSuppression
             actionString = (isReviewRule) ? actionString + " on " :actionString + " until ";
             actionString = actionString + date.getFullYear() + "-" + month + "-" + day;
         }
-        if(isReviewRule && DevSkimWorker.settings.devskim.manualReviewerName !== undefined && DevSkimWorker.settings.devskim.manualReviewerName != null &&
-            DevSkimWorker.settings.devskim.manualReviewerName.length > 0)
+        if(isReviewRule && settings.devskim.manualReviewerName !== undefined && settings.devskim.manualReviewerName != null &&
+            settings.devskim.manualReviewerName.length > 0)
         {
-            actionString = actionString + " by " + DevSkimWorker.settings.devskim.manualReviewerName;
+            actionString = actionString + " by " + settings.devskim.manualReviewerName;
         }
         return actionString;
     }      
@@ -86,20 +86,20 @@ export class DevSkimSuppression
      * 
      * @memberOf DevSkimSuppression
      */
-    public createActions(ruleID : string, documentContents : string, startCharacter : number, lineStart : number, langID : string, ruleSeverity : DevskimRuleSeverity) : DevSkimAutoFixEdit[]
+    public createActions(ruleID : string, documentContents : string, startCharacter : number, lineStart : number, langID : string, ruleSeverity : DevskimRuleSeverity, settings : Settings) : DevSkimAutoFixEdit[]
     {
         let codeActions : DevSkimAutoFixEdit[] = [];
         let isReviewRule = (ruleSeverity !== undefined && ruleSeverity != null && ruleSeverity == DevskimRuleSeverity.ManualReview);
 
         //if this is a suppression and temporary suppressions are enabled (i.e. the setting for suppression duration is > 0) then
         //first add a code action for a temporary suppression
-        if(!isReviewRule && DevSkimWorker.settings.devskim.suppressionDurationInDays > 0)
+        if(!isReviewRule && settings.devskim.suppressionDurationInDays > 0)
         {
-            codeActions.push(this.addAction(ruleID,documentContents,startCharacter,lineStart,langID,isReviewRule,DevSkimWorker.settings.devskim.suppressionDurationInDays));
+            codeActions.push(this.addAction(ruleID,documentContents,startCharacter,lineStart,langID,isReviewRule,settings, settings.devskim.suppressionDurationInDays));
         }
 
         //now either add a code action to mark this reviewed, or to suppress the finding indefinitely
-        codeActions.push(this.addAction(ruleID,documentContents,startCharacter,lineStart,langID,isReviewRule));
+        codeActions.push(this.addAction(ruleID,documentContents,startCharacter,lineStart,langID,isReviewRule, settings));
         return codeActions;
     }
 
@@ -116,7 +116,7 @@ export class DevSkimSuppression
      * 
      * @memberOf DevSkimSuppression
      */
-    private addAction(ruleID : string, documentContents : string, startCharacter : number, lineStart : number, langID : string, isReviewRule : boolean, daysOffset ?: number) : DevSkimAutoFixEdit
+    private addAction(ruleID : string, documentContents : string, startCharacter : number, lineStart : number, langID : string, isReviewRule : boolean, settings : Settings, daysOffset ?: number) : DevSkimAutoFixEdit
     {
         let action : DevSkimAutoFixEdit = Object.create(null);
         let isDateSet = (daysOffset !==undefined && daysOffset !=null && daysOffset > 0);
@@ -184,11 +184,11 @@ export class DevSkimSuppression
 
             if(isReviewRule || isDateSet)
             {
-                action.text = this.makeActionString(ruleID,isReviewRule, date);
+                action.text = this.makeActionString(ruleID,isReviewRule,settings, date);
             }
             else
             {
-                action.text = this.makeActionString(ruleID,isReviewRule);
+                action.text = this.makeActionString(ruleID,isReviewRule, settings);
             }       
         }
         //if there is not an existing suppression then we need to find the newline and insert the suppression just before the newline
@@ -205,11 +205,11 @@ export class DevSkimSuppression
 
             if(isReviewRule || isDateSet)
             {
-                action.text = " " + StartComment + this.makeActionString(ruleID,isReviewRule, date) + " " + EndComment; 
+                action.text = " " + StartComment + this.makeActionString(ruleID,isReviewRule,settings, date) + " " + EndComment; 
             }
             else
             {
-                action.text = " " + StartComment + this.makeActionString(ruleID,isReviewRule) + " " + EndComment; 
+                action.text = " " + StartComment + this.makeActionString(ruleID,isReviewRule, settings) + " " + EndComment; 
             }             
          
         }

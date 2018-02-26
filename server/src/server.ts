@@ -31,10 +31,14 @@ let documents: TextDocuments = new TextDocuments();
 // for open, change and close text document events
 documents.listen(connection);
 
+var settings : Settings = Object.create(null);
+settings.devskim = new DevSkimSettings();
 
 //Set up a new instance of a DevSkimWorker analysis engine.  This is the object that does all the real
 //work of analyzing a file.  
-var analysisEngine : DevSkimWorker = new DevSkimWorker();
+var analysisEngine : DevSkimWorker = new DevSkimWorker(settings);
+
+
 	
 
 // After the server has started the client sends an initialize request. The server receives
@@ -63,7 +67,7 @@ documents.onDidOpen((change) => {
 
 //if the user has specified in settings, all findings will be cleared when they close a document
 documents.onDidClose((change) => {	
-	if(DevSkimWorker.settings.devskim.removeFindingsOnClose)
+	if(settings.devskim.removeFindingsOnClose)
 	{	
 		let diagnostics : Diagnostic[] = [];
 		connection.sendDiagnostics({ uri: change.document.uri, diagnostics });
@@ -79,7 +83,7 @@ connection.onDidChangeConfiguration((change) => {
 	//this was part of the template but I basically ignore it.  The settings should
 	//be updated to allow rulesets to be turned on and off, and this is where we would
 	//get notified that the user did so
-	DevSkimWorker.settings = <Settings>change.settings;
+	settings = <Settings>change.settings;
 	// Revalidate any open text documents
 	documents.all().forEach(validateTextDocument);
 });
@@ -131,11 +135,11 @@ function validateTextDocument(textDocument: TextDocument): void
 	let diagnostics: Diagnostic[] = [];
 	delete analysisEngine.codeActions[textDocument.uri];
 
-	var problems : DevSkimProblem[] = analysisEngine.analyzeText(textDocument.getText(),textDocument.languageId, textDocument.uri);
+	var problems : DevSkimProblem[] = analysisEngine.analyzeText(textDocument.getText(),textDocument.languageId, textDocument.uri, settings);
 	
 	for(var problem of problems)
 	{
-		let diagnostic : Diagnostic = problem.makeDiagnostic();
+		let diagnostic : Diagnostic = problem.makeDiagnostic(settings.devskim.guidanceBaseURL);
 		diagnostics.push(diagnostic);
 
 		for(var fix of problem.fixes)
@@ -180,7 +184,7 @@ namespace ReloadRulesRequest {
 	export const type = new RequestType<ReloadRulesParams,void, void, void>('devskim/validaterules')}
 
 connection.onRequest(ReloadRulesRequest.type, (params) => {
-	analysisEngine.refreshAnalysisRules();
+	analysisEngine.refreshAnalysisRules(settings.devskim.validateRulesFiles);
 });
 
 

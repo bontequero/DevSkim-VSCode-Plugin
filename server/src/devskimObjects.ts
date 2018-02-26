@@ -21,8 +21,9 @@ export interface Settings {
 
 // These are the example settings we defined in the client's package.json
 // file
-export interface DevSkimSettings {
-	enableManualReviewRules: boolean;
+export class DevSkimSettings {
+
+	public enableManualReviewRules: boolean;
 	enableBestPracticeRules: boolean;
 	suppressionDurationInDays: number;
 	manualReviewerName: string;
@@ -31,6 +32,31 @@ export interface DevSkimSettings {
 	validateRulesFiles: boolean;
 	guidanceBaseURL: string;	
 	removeFindingsOnClose: boolean;
+
+	constructor ()
+	{
+		//set up the initial defaults
+		this.suppressionDurationInDays = 30;
+		this.removeFindingsOnClose = false;
+		this.guidanceBaseURL = "https://github.com/Microsoft/DevSkim/blob/master/guidance/";
+		this.enableBestPracticeRules = false;
+		this.enableManualReviewRules = false;
+		this.manualReviewerName = "";
+		this.ignoreFilesList = [
+			"out/*",
+			"bin/*",
+			"node_modules/*",
+			".vscode/*",
+			"yarn.lock",
+			"logs/*",
+			"*.log",
+			"*.git"
+		];
+		this.ignoreRulesList = [];
+		this.validateRulesFiles = false;
+		this.removeFindingsOnClose = false;
+	}
+
 }
 
 /**
@@ -266,7 +292,7 @@ export class DevSkimProblem {
      * 
      * @returns {Diagnostic}
      */
-    public makeDiagnostic(): Diagnostic 
+    public makeDiagnostic(guidanceBaseURL : string): Diagnostic 
 	{
 		var diagnostic : Diagnostic = Object.create(null);
 		//truncate the severity so that the message looks a bit more succinct in the output window
@@ -277,7 +303,7 @@ export class DevSkimProblem {
 			fullMessage;
 
 		fullMessage = (this.issueURL.length > 0 ) ? 
-			fullMessage + "\n\nMore Info:\n" + DevSkimWorker.settings.devskim.guidanceBaseURL + this.issueURL : 
+			fullMessage + "\n\nMore Info:\n" + guidanceBaseURL + this.issueURL : 
 			fullMessage;
 
 		diagnostic.message = fullMessage;
